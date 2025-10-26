@@ -1,0 +1,469 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Tstudio Cut — Web Editor (Trixy Edition)</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;500;700;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#050507; --panel: rgba(255,255,255,0.03); --glass: rgba(255,255,255,0.04);
+  --neon:#00f0ff; --neon2:#7cffb2; --accent: linear-gradient(90deg,#00f0ff,#7cffb2);
+  --radius:16px; --muted: rgba(255,255,255,0.6);
+  font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0;background:
+  radial-gradient(800px 400px at 10% 10%, rgba(0,16,32,0.6), transparent),
+  radial-gradient(600px 300px at 90% 90%, rgba(8,0,30,0.5), transparent),
+  var(--bg); color:#e9fbff}
+a{color:var(--neon2)}
+.app{
+  max-width:1300px;margin:20px auto;padding:18px;position:relative;z-index:2;
+}
+/* Header */
+.header{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.brand{display:flex;align-items:center;gap:12px}
+.logo{
+  width:58px;height:58px;border-radius:14px;background:linear-gradient(135deg,#001a66,#002b4a);
+  display:grid;place-items:center;color:#fff;font-weight:800;box-shadow:0 12px 40px rgba(0,0,0,0.6);
+}
+.title{font-size:20px;font-weight:800;letter-spacing:0.4px}
+.header .actions{display:flex;gap:10px;align-items:center}
+.btn{
+  padding:8px 12px;border-radius:999px;border:0;background:var(--neon);
+  color:#001022;font-weight:700;cursor:pointer;box-shadow:0 8px 30px rgba(0,208,255,0.06);
+}
+.ghost{background:transparent;border:1px solid rgba(255,255,255,0.06);color:var(--neon2)}
+.small{font-size:13px;color:var(--muted)}
+
+/* layout */
+.grid{display:grid;grid-template-columns: 1fr 420px;gap:16px;margin-top:16px}
+.editor-panel{background:var(--panel);border-radius:var(--radius);padding:12px;border:1px solid rgba(255,255,255,0.04);box-shadow:0 14px 40px rgba(0,0,0,0.6)}
+.preview{height:420px;border-radius:12px;overflow:hidden;background:#000;display:flex;align-items:center;justify-content:center;border:1px solid rgba(255,255,255,0.03)}
+.preview video{width:100%;height:100%;object-fit:contain;background:#000}
+
+/* timeline area */
+.timeline{margin-top:12px;border-radius:12px;padding:8px;min-height:160px;background:linear-gradient(180deg,rgba(255,255,255,0.01),transparent);border:1px dashed rgba(255,255,255,0.03)}
+.dropzone{display:flex;align-items:center;justify-content:center;height:120px;border-radius:10px;background:linear-gradient(90deg, rgba(255,255,255,0.02), rgba(0,0,0,0.02));color:var(--muted);border:1px dashed rgba(255,255,255,0.04)}
+.clip-list{margin-top:10px;display:flex;flex-direction:column;gap:8px;max-height:200px;overflow:auto;padding-right:6px}
+.clip{display:flex;align-items:center;gap:10px;padding:8px;border-radius:10px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.03)}
+.clip .meta{flex:1}
+.clip .meta .name{font-weight:700}
+.clip .meta .dur{font-size:12px;color:var(--muted)}
+
+/* tools */
+.tools{display:flex;flex-direction:column;gap:8px;margin-top:12px}
+.controls-row{display:flex;gap:8px;align-items:center}
+.input{padding:8px 10px;border-radius:10px;border:1px solid rgba(255,255,255,0.04);background:rgba(0,0,0,0.35);color:#eaf9ff;}
+
+/* right panel */
+.side{display:flex;flex-direction:column;gap:12px}
+.card{background:var(--panel);border-radius:12px;padding:12px;border:1px solid rgba(255,255,255,0.04)}
+.preview-mini{height:120px;border-radius:8px;overflow:hidden;border:1px solid rgba(255,255,255,0.03)}
+.kv{display:flex;justify-content:space-between;align-items:center}
+
+/* liquid blobs - decorative */
+.blob {
+  position:fixed;right:-8%;top:-10%;width:600px;height:600px;z-index:0;filter:blur(60px) saturate(120%);opacity:0.7;
+  background: radial-gradient(circle at 20% 20%, rgba(0,208,255,0.18), transparent 15%), radial-gradient(circle at 80% 80%, rgba(124,255,178,0.12), transparent 20%);
+  border-radius:50%;
+  transform:rotate(12deg);
+}
+
+/* footer */
+.footer{margin-top:18px;display:flex;justify-content:space-between;align-items:center;color:var(--muted);font-size:13px;padding:8px}
+
+/* responsive */
+@media(max-width:1100px){.grid{grid-template-columns:1fr}.side{order:2}}
+</style>
+</head>
+<body>
+
+<div class="blob" aria-hidden="true"></div>
+
+<div class="app">
+  <header class="header">
+    <div class="brand">
+      <div class="logo">TC</div>
+      <div>
+        <div class="title">Tstudio Cut</div>
+        <div class="small">Web video editor • neon noir • Trixy</div>
+      </div>
+    </div>
+
+    <div class="actions">
+      <div id="userInfo" class="small">Invité</div>
+      <button id="btnSign" class="btn">Connexion Google</button>
+      <button id="btnSaveProj" class="btn ghost">Sauvegarder projet</button>
+    </div>
+  </header>
+
+  <main class="grid">
+    <section class="editor-panel">
+      <div class="preview" id="previewArea">
+        <video id="player" controls></video>
+      </div>
+
+      <div class="timeline">
+        <div class="dropzone" id="dropzone">Glisse & dépose tes clips vidéo ici (ou clique)</div>
+
+        <div class="clip-list" id="clipList" aria-live="polite"></div>
+
+        <div class="tools">
+          <div class="controls-row">
+            <label class="small" for="audioFile">Piste audio (ou coller SoundCloud URL):</label>
+          </div>
+          <div style="display:flex;gap:8px;margin-top:6px">
+            <input id="audioFile" class="input" type="file" accept="audio/*">
+            <input id="scUrl" class="input" placeholder="SoundCloud URL (preview only)">
+            <button id="btnAddAudio" class="btn ghost">Ajouter</button>
+          </div>
+
+          <div class="controls-row" style="margin-top:8px">
+            <label class="small">Quality:</label>
+            <select id="quality" class="input" style="width:140px">
+              <option value="720">HD 720p</option>
+              <option value="1080" selected>Full HD 1080p</option>
+              <option value="2160">4K (slow)</option>
+            </select>
+            <label class="small" style="margin-left:8px">Volume:</label>
+            <input id="audioVol" type="range" min="0" max="200" value="100" style="width:140px">
+            <button id="btnExport" class="btn" style="margin-left:auto">Exporter & Télécharger</button>
+          </div>
+
+          <div class="small" style="margin-top:8px;color:var(--muted)">
+            Notes: le premier export charge ffmpeg.wasm (quelques secondes). Pour SoundCloud, colle URL (preview only). Respecte la loi sur les droits d'auteur pour musique.
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <aside class="side">
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div><strong>Projet</strong><div class="small">Mini compte local • Google sign-in</div></div>
+          <div class="small" id="projName">Sans titre</div>
+        </div>
+        <div style="height:8px"></div>
+        <div class="kv"><div class="small">Clips</div><div id="clipCount" class="small">0</div></div>
+        <div style="height:8px"></div>
+        <div class="kv"><div class="small">Audio</div><div id="audioName" class="small">Aucun</div></div>
+      </div>
+
+      <div class="card">
+        <div class="small">Preview rapide</div>
+        <div class="preview-mini" id="miniPreview"></div>
+        <div style="height:8px"></div>
+        <div class="small">Inspiration: transitions liquides • CapCut vibes</div>
+      </div>
+
+      <div class="card">
+        <div class="small">Actions rapides</div>
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <button id="btnClear" class="btn ghost">Tout effacer</button>
+          <button id="btnDownloadProj" class="btn ghost">Télécharger projet (.json)</button>
+        </div>
+      </div>
+    </aside>
+  </main>
+
+  <footer class="footer">
+    <div>© Trixyverse • Tstudio Cut</div>
+    <div class="small">Export local via ffmpeg.wasm • Remplacez Google Client ID pour sign-in réel</div>
+  </footer>
+</div>
+
+<!-- ffmpeg.wasm from CDN -->
+<script src="https://unpkg.com/@ffmpeg/ffmpeg@0.11.9/dist/ffmpeg.min.js"></script>
+
+<!-- Google Identity (client-side sign-in) -->
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+
+<script>
+/* ==== Tstudio Cut — single-file web editor (best-effort) ==== */
+/* NOTE: replace GOOGLE_CLIENT_ID with your web client id to enable sign-in fully */
+const GOOGLE_CLIENT_ID = 'REPLACE_WITH_YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com';
+
+const { createFFmpeg, fetchFile } = FFmpeg;
+const ffmpeg = createFFmpeg({ log: true });
+let ffmpegLoaded = false;
+
+const state = {
+  clips: [], // {name, file, url, duration, id}
+  audio: null, // {name, file, url}
+  user: null,
+  projectName: 'Sans titre'
+};
+
+// UI refs
+const dropzone = document.getElementById('dropzone');
+const clipList = document.getElementById('clipList');
+const player = document.getElementById('player');
+const clipCount = document.getElementById('clipCount');
+const audioName = document.getElementById('audioName');
+const btnExport = document.getElementById('btnExport');
+const btnSign = document.getElementById('btnSign');
+const userInfo = document.getElementById('userInfo');
+const btnSaveProj = document.getElementById('btnSaveProj');
+const btnDownloadProj = document.getElementById('btnDownloadProj');
+const btnClear = document.getElementById('btnClear');
+const projNameEl = document.getElementById('projName');
+const miniPreview = document.getElementById('miniPreview');
+
+function uid(){ return 'id-' + Math.random().toString(36).slice(2,9); }
+
+/* ---------- Helpers ---------- */
+function humanTime(s){
+  if(!s) return '0:00';
+  const sec = Math.floor(s%60); const min = Math.floor(s/60);
+  return `${min}:${sec.toString().padStart(2,'0')}`;
+}
+function updateUI(){
+  clipList.innerHTML = '';
+  state.clips.forEach((c,idx)=>{
+    const el = document.createElement('div'); el.className='clip';
+    el.innerHTML = `<div style="width:80px;height:50px;background:#031021;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#7ff">${idx+1}</div>
+      <div class="meta"><div class="name">${c.name}</div><div class="dur small">${humanTime(c.duration)}</div></div>
+      <div style="display:flex;gap:8px"><button data-id="${c.id}" class="btn ghost btnPlay">Play</button><button data-id="${c.id}" class="btn ghost btnRemove">X</button></div>`;
+    clipList.appendChild(el);
+  });
+  clipCount.textContent = state.clips.length;
+  audioName.textContent = state.audio ? state.audio.name : 'Aucun';
+  projNameEl.textContent = state.projectName;
+  // mini preview
+  if(state.clips[0]){
+    miniPreview.innerHTML = `<video src="${state.clips[0].url}" style="width:100%;height:100%;object-fit:cover" muted autoplay loop></video>`;
+  } else miniPreview.innerHTML = '';
+}
+
+async function loadFFmpegIfNeeded(){
+  if(ffmpegLoaded) return;
+  btnExport.disabled = true;
+  btnExport.textContent = 'Chargement du moteur...';
+  await ffmpeg.load();
+  ffmpegLoaded = true;
+  btnExport.disabled = false;
+  btnExport.textContent = 'Exporter & Télécharger';
+}
+
+/* ---------- Drag & drop + file add ---------- */
+dropzone.addEventListener('click', ()=> {
+  const inp = document.createElement('input'); inp.type='file'; inp.accept='video/*'; inp.multiple=true;
+  inp.onchange = ()=> handleFiles(inp.files);
+  inp.click();
+});
+dropzone.addEventListener('dragover', (e)=>{ e.preventDefault(); dropzone.style.borderColor = 'rgba(0,255,255,0.6)';});
+dropzone.addEventListener('dragleave', (e)=>{ dropzone.style.borderColor = 'rgba(255,255,255,0.04)';});
+dropzone.addEventListener('drop', (e)=>{ e.preventDefault(); dropzone.style.borderColor = 'rgba(255,255,255,0.04)'; handleFiles(e.dataTransfer.files);});
+
+function handleFiles(fileList){
+  const files = Array.from(fileList).filter(f=>f.type.startsWith('video/'));
+  if(files.length===0) return alert('Aucun fichier vidéo valide.');
+  files.forEach(async (f)=>{
+    const url = URL.createObjectURL(f);
+    // get duration via video element
+    const tmp = document.createElement('video'); tmp.preload='metadata'; tmp.src = url;
+    tmp.onloadedmetadata = ()=> {
+      const dur = tmp.duration || 0;
+      const id = uid();
+      state.clips.push({id, name: f.name, file: f, url, duration: dur});
+      updateUI();
+      URL.revokeObjectURL(tmp.src);
+    };
+  });
+}
+
+/* ---------- clip actions (play/remove) ---------- */
+clipList.addEventListener('click',(e)=>{
+  if(e.target.matches('.btnPlay')){
+    const id = e.target.dataset.id; const c = state.clips.find(x=>x.id===id);
+    if(c){ player.src = c.url; player.play(); }
+  }
+  if(e.target.matches('.btnRemove')){
+    const id = e.target.dataset.id; state.clips = state.clips.filter(x=>x.id!==id); updateUI();
+  }
+});
+
+/* ---------- audio add (file or SoundCloud URL preview) ---------- */
+document.getElementById('btnAddAudio').addEventListener('click', async ()=>{
+  const f = document.getElementById('audioFile').files[0];
+  const sc = document.getElementById('scUrl').value.trim();
+  if(f){
+    const url = URL.createObjectURL(f);
+    state.audio = {name: f.name, file: f, url};
+    updateUI();
+    return;
+  }
+  if(sc){
+    // simple preview embed (no remote download) — warn user
+    const embed = `https://w.soundcloud.com/player/?url=${encodeURIComponent(sc)}&color=%2300f0ff`;
+    window.open(embed,'_blank');
+    alert('Preview SoundCloud ouverte dans un nouvel onglet. Pour l\'export, téléchargez la piste en local et ajoutez-la ici (droit d\'usage).');
+    return;
+  }
+  alert('Choisis un fichier audio ou colle une URL SoundCloud.');
+});
+
+/* ---------- Google Sign-in (client-side) ---------- */
+function handleCredentialResponse(response){
+  // response.credential is a JWT — we keep as user token for demo only
+  // decode basic info (not verifying here)
+  const base64Url = response.credential.split('.')[1];
+  const jsonPayload = decodeURIComponent(atob(base64Url).split('').map(function(c){ return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2); }).join(''));
+  const profile = JSON.parse(jsonPayload);
+  state.user = {name: profile.name, email: profile.email, picture: profile.picture};
+  userInfo.textContent = profile.name;
+  btnSign.textContent = 'Déconnecter';
+  btnSign.onclick = signOut;
+  console.log('Signed in', profile);
+}
+function initGoogle(){
+  if(!window.google || !GOOGLE_CLIENT_ID || GOOGLE_CLIENT_ID.includes('REPLACE')) {
+    // Leave as guest mode if not configured
+    btnSign.onclick = ()=> { alert('Google Sign-in non configuré — remplace GOOGLE_CLIENT_ID dans le fichier pour activer. Mode invité.');};
+    return;
+  }
+  google.accounts.id.initialize({ client_id: GOOGLE_CLIENT_ID, callback: handleCredentialResponse });
+  google.accounts.id.renderButton(btnSign, { theme: "outline", size: "small", width: 120, text: "signin_with" });
+  google.accounts.id.prompt(); // show one-tap
+}
+function signOut(){
+  state.user = null;
+  userInfo.textContent = 'Invité';
+  btnSign.textContent = 'Connexion Google';
+  btnSign.onclick = ()=> google.accounts.id.prompt();
+}
+
+/* ---------- Save / Load project locally (mini-account) ---------- */
+btnSaveProj.addEventListener('click', ()=>{
+  const name = prompt('Nom du projet', state.projectName) || state.projectName;
+  state.projectName = name;
+  const proj = serializeProject();
+  const key = `tstudio_proj_${state.user ? state.user.email : 'guest'}_${Date.now()}`;
+  localStorage.setItem(key, JSON.stringify(proj));
+  alert('Projet sauvegardé localement.');
+  updateUI();
+});
+
+btnDownloadProj.addEventListener('click', ()=>{
+  const proj = serializeProject();
+  const blob = new Blob([JSON.stringify(proj, null, 2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = (state.projectName||'project') + '.tstudio.json';
+  a.click(); URL.revokeObjectURL(url);
+});
+
+function serializeProject(){
+  return {
+    name: state.projectName,
+    user: state.user,
+    clips: state.clips.map(c=>({name:c.name, duration:c.duration})),
+    audio: state.audio ? {name: state.audio.name} : null,
+    created: Date.now()
+  };
+}
+
+/* ---------- Clear ---------- */
+btnClear.addEventListener('click', ()=>{
+  if(!confirm('Tout effacer ?')) return;
+  state.clips.forEach(c=> URL.revokeObjectURL(c.url));
+  if(state.audio) URL.revokeObjectURL(state.audio.url);
+  state.clips = []; state.audio = null; updateUI();
+});
+
+/* ---------- Export pipeline using ffmpeg.wasm ---------- */
+btnExport.addEventListener('click', async ()=>{
+  if(state.clips.length===0) return alert('Ajoute au moins un clip.');
+  await loadFFmpegIfNeeded();
+
+  // Prepare files for ffmpeg FS
+  // 1) write all clips to FS
+  btnExport.disabled = true;
+  btnExport.textContent = 'Préparation...';
+  try{
+    // write inputs
+    for(let i=0;i<state.clips.length;i++){
+      const c = state.clips[i];
+      const data = await fetchFile(c.file);
+      const name = `clip${i}.mp4`;
+      ffmpeg.FS('writeFile', name, data);
+    }
+    // audio
+    let audioName = null;
+    if(state.audio && state.audio.file){
+      const aData = await fetchFile(state.audio.file);
+      audioName = `audio${Date.now()}.mp3`;
+      ffmpeg.FS('writeFile', audioName, aData);
+    }
+
+    // Build filter for concat: use -i clip0 -i clip1 ... -filter_complex concat=n=N:v=1:a=1[outv][outa] -map [outv] -map [outa]
+    // But clips may not have audio or same codecs; for demo we'll re-encode each input to common format then concat via concat filter.
+    btnExport.textContent = 'Encodage clips...';
+    // re-encode to uniform streams
+    for(let i=0;i<state.clips.length;i++){
+      const inName = `clip${i}.mp4`;
+      const midName = `r${i}.mp4`;
+      // scale to selected quality
+      const q = document.getElementById('quality').value;
+      // simple transcode (may be slow)
+      await ffmpeg.run('-i', inName, '-vf', `scale=${q}:-2`, '-c:v', 'libx264', '-preset','veryfast','-crf','23','-c:a','aac', midName);
+      // remove original to save memory
+      ffmpeg.FS('unlink', inName);
+    }
+
+    // create file list for concat
+    const listTxt = state.clips.map((_,i)=>`file 'r${i}.mp4'`).join('\n');
+    ffmpeg.FS('writeFile', 'list.txt', listTxt);
+
+    btnExport.textContent = 'Concaténation...';
+    // concat using demuxer
+    await ffmpeg.run('-f','concat','-safe','0','-i','list.txt','-c','copy','out_concat.mp4');
+
+    // if audio overlay present -> mix
+    const outFinal = 'final_out.mp4';
+    if(audioName){
+      btnExport.textContent = 'Mix audio...';
+      // adjust audio volume
+      const vol = (document.getElementById('audioVol').value || 100) / 100;
+      // map audio to 2nd input
+      // re-encode the concat to prevent stream copy issues
+      await ffmpeg.run('-i','out_concat.mp4','-i',audioName,'-filter_complex',`[1:a]volume=${vol}[a1];[0:a][a1]amerge=inputs=2[aout]`,'-map','0:v','-map','[aout]','-c:v','copy','-c:a','aac','-ac',2,outFinal);
+    } else {
+      // no audio overlay -> rename
+      await ffmpeg.run('-i','out_concat.mp4','-c:v','copy','-c:a','aac', outFinal);
+    }
+
+    btnExport.textContent = 'Extraction fichier...';
+    const data = ffmpeg.FS('readFile', outFinal);
+    const videoBlob = new Blob([data.buffer], {type:'video/mp4'});
+    const url = URL.createObjectURL(videoBlob);
+    const a = document.createElement('a'); a.href = url; a.download = (state.projectName||'tstudio_cut') + '.mp4';
+    a.click();
+    setTimeout(()=> URL.revokeObjectURL(url), 60000);
+    alert('Export terminé. Vérifie ton dossier de téléchargements.');
+
+    // cleanup FS (best-effort)
+    try{ ffmpeg.FS('unlink','list.txt'); ffmpeg.FS('unlink','out_concat.mp4'); ffmpeg.FS('unlink', outFinal); }catch(e){}
+  }catch(err){
+    console.error(err);
+    alert('Erreur d\'export : ' + (err.message || err));
+  }finally{
+    btnExport.disabled = false;
+    btnExport.textContent = 'Exporter & Télécharger';
+  }
+});
+
+/* ---------- init ---------- */
+updateUI();
+setTimeout(()=>initGoogle(),400);
+
+/* ---------- accessibility: warn on unload if ffmpeg running ---------- */
+window.addEventListener('beforeunload', (e)=>{
+  if(ffmpegLoaded && (ffmpeg.isLoaded || ffmpegRunning)) {
+    e.returnValue = 'Un export est en cours — quittes la page seulement si tu es sûr.';
+  }
+});
+</script>
+</body>
+</html>
